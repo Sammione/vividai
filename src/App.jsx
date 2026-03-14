@@ -10,6 +10,8 @@ function App() {
   const [result, setResult] = useState(null);
   const [currentScene, setCurrentScene] = useState(0);
   const [sceneImages, setSceneImages] = useState([]);
+  const [generatingImages, setGeneratingImages] = useState(false);
+  const [keyMissing, setKeyMissing] = useState(!import.meta.env.VITE_OPENAI_API_KEY);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const canvasRef = useRef(null);
