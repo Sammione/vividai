@@ -38,9 +38,9 @@
 }
 
 .hero h1 {
-  font-size: 5rem;
+  font-size: clamp(2.5rem, 8vw, 5rem);
   line-height: 1.1;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .key-warning {
@@ -316,6 +316,70 @@
 }
 
 @media (max-width: 968px) {
-  .hero h1 { font-size: 3rem; }
-  .grid-container { grid-template-columns: 1fr; }
+  .hero {
+    padding: 4rem 0 2rem;
+  }
+  .nav-links {
+    display: none;
+  }
+  .grid-container { 
+    grid-template-columns: 1fr; 
+  }
+  .preview-panel {
+    min-height: auto;
+  }
+  .input-wrapper {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  .input-wrapper input {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  .hero h1 {
+    font-size: 2.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 1rem;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+  }
+  .glass-card {
+    padding: 1.25rem;
+  }
+  .btn-primary, .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+  .scene-controls {
+    flex-wrap: wrap;
+  }
+  .scene-dot {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+}
+
+.btn-download {
+  background: var(--glass-bg);
+  border: 1px solid var(--accent-secondary);
+  color: var(--accent-secondary);
+  padding: 0.6rem 1.2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s;
+  margin-top: 1rem;
+}
+
+.btn-download:hover {
+  background: rgba(0, 209, 255, 0.1);
+  transform: translateY(-2px);
 }

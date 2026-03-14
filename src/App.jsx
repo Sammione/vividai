@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Video, Type, Play, Plus, Loader2, Wand2, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, Video, Type, Play, Plus, Loader2, Wand2, Image as ImageIcon, Download } from 'lucide-react';
 import { generateVideoConcept, generateImagePrompt } from './openai';
 import './App.css';
 
@@ -43,6 +43,20 @@ function App() {
     } finally {
       setGeneratingImages(false);
     }
+  };
+
+  const downloadAssets = async () => {
+    if (!sceneImages.length) return;
+    
+    sceneImages.forEach((url, index) => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vividai-scene-${index + 1}.png`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
   };
 
   return (
@@ -172,6 +186,14 @@ function App() {
                       </button>
                     ))}
                   </div>
+
+                  {sceneImages.length > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                         <button className="btn-download" onClick={downloadAssets}>
+                            <Download size={18} /> Download Production Assets
+                        </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Script Panel */}
