@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Video, Type, Play, Plus, Loader2, Wand2, Image as ImageIcon, Download } from 'lucide-react';
+import { Sparkles, Video, Type, Play, Plus, Loader2, Wand2, Image as ImageIcon, Download, Pause, Square } from 'lucide-react';
 import { generateVideoConcept, generateImagePrompt } from './openai';
 import './App.css';
 
@@ -10,12 +10,16 @@ function App() {
   const [result, setResult] = useState(null);
   const [currentScene, setCurrentScene] = useState(0);
   const [sceneImages, setSceneImages] = useState([]);
-  const [generatingImages, setGeneratingImages] = useState(false);
-  const [keyMissing, setKeyMissing] = useState(!import.meta.env.VITE_OPENAI_API_KEY);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const canvasRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunks = useRef([]);
 
   const handleGenerate = async () => {
     if (!prompt) return;
     setLoading(true);
+    setIsPlaying(false);
     try {
       const data = await generateVideoConcept(prompt);
       setResult(data);
@@ -43,6 +47,66 @@ function App() {
     } finally {
       setGeneratingImages(false);
     }
+  };
+
+  useEffect(() => {
+    let interval;
+    if (isPlaying && result && sceneImages.length > 0) {
+      interval = setInterval(() => {
+        setCurrentScene((prev) => (prev + 1) % result.scenes.length);
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, result, sceneImages]);
+
+  const startRecording = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    recordedChunks.current = [];
+    const stream = canvas.captureStream(30);
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'video/webm;codecs=vp9',
+      bitsPerSecond: 5000000 
+    });
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunks.current.push(event.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vividai-production-${Date.now()}.mp4`; // Naming it mp4 so users can play it easily
+      a.click();
+      setIsRecording(false);
+    };
+
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+    setIsPlaying(true);
+    setCurrentScene(0);
+
+    // Stop recording after full loop (15 seconds for 3 scenes)
+    setTimeout(() => {
+        if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            setIsPlaying(false);
+        }
+    }, 15000);
+  };
+
+  const togglePlayback = () => {
+    if (sceneImages.length === 0) {
+        alert("Please generate images first!");
+        return;
+    }
+    setIsPlaying(!isPlaying);
   };
 
   const downloadAssets = async () => {
@@ -153,14 +217,16 @@ function App() {
                   </div>
                   
                   <div className="video-viewport">
-                    {sceneImages[currentScene] ? (
-                        <motion.img 
-                            key={sceneImages[currentScene]}
-                            src={sceneImages[currentScene]} 
-                            initial={{ scale: 1.1, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="scene-image"
-                        />
+                    {sceneImages.length > 0 ? (
+                        <div className="canvas-container" style={{ width: '100%', height: '100%' }}>
+                            <CanvasRenderer 
+                                currentScene={currentScene}
+                                images={sceneImages}
+                                subtitles={result.subtitles}
+                                canvasRef={canvasRef}
+                                isPlaying={isPlaying}
+                            />
+                        </div>
                     ) : (
                         <div className="placeholder-preview">
                             <Play className="play-icon" />
@@ -168,10 +234,19 @@ function App() {
                             <p className="scene-desc-short">{result.scenes[currentScene].description}</p>
                         </div>
                     )}
-                    
-                    <div className="subtitle-overlay">
-                      {result.subtitles.find(s => parseInt(s.time) <= (currentScene + 1) * 5 && parseInt(s.time) > currentScene * 5)?.text || 
-                       result.subtitles[currentScene*2]?.text}
+                  </div>
+
+                  <div className="playback-controls">
+                    <button className="btn-circle" onClick={togglePlayback} disabled={sceneImages.length === 0}>
+                        {isPlaying ? <Pause /> : <Play />}
+                    </button>
+                    <div className="progress-bar">
+                        <motion.div 
+                            className="progress-fill"
+                            animate={{ width: isPlaying ? '100%' : '0%' }}
+                            transition={{ duration: 15, ease: "linear" }}
+                            key={isPlaying}
+                        />
                     </div>
                   </div>
 
@@ -188,9 +263,9 @@ function App() {
                   </div>
 
                   {sceneImages.length > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'center' }}>
-                         <button className="btn-download" onClick={downloadAssets}>
-                            <Download size={18} /> Download Production Assets
+                    <div className="action-row">
+                         <button className="btn-download" onClick={startRecording} disabled={isRecording}>
+                            {isRecording ? <><Loader2 className="spin" size={18} /> Recording Video...</> : <><Download size={18} /> Export as MP4 Video</>}
                         </button>
                     </div>
                   )}
@@ -240,6 +315,84 @@ function App() {
       </footer>
     </div>
   );
+}
+
+function CanvasRenderer({ currentScene, images, subtitles, canvasRef, isPlaying }) {
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let animationFrame;
+
+        // Set dimensions
+        canvas.width = 1280;
+        canvas.height = 720;
+
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = images[currentScene];
+
+        let startTime = Date.now();
+
+        const render = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background image with slight pan (Ken Burns effect)
+            const elapsed = (Date.now() - startTime) / 1000;
+            const factor = isPlaying ? 1 + (elapsed * 0.05) : 1;
+            
+            const w = canvas.width * factor;
+            const h = canvas.height * factor;
+            const x = (canvas.width - w) / 2;
+            const y = (canvas.height - h) / 2;
+            
+            ctx.drawImage(img, x, y, w, h);
+
+            // Overlay Subtitles
+            const currentTime = (currentScene * 5) + (isPlaying ? elapsed % 5 : 0);
+            const currentSub = subtitles.find(s => {
+                const sTime = parseInt(s.time);
+                return sTime <= currentTime && (sTime + 2.5) > currentTime;
+            });
+
+            if (currentSub) {
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(100, canvas.height - 120, canvas.width - 200, 80);
+                
+                ctx.font = 'bold 40px Inter, sans-serif';
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.fillText(currentSub.text, canvas.width / 2, canvas.height - 65);
+            }
+
+            // Watermark
+            ctx.globalAlpha = 0.5;
+            ctx.font = '24px Inter';
+            ctx.fillStyle = 'cyan';
+            ctx.fillText('VividAI Production', 150, 50);
+            ctx.globalAlpha = 1.0;
+
+            animationFrame = requestAnimationFrame(render);
+        };
+
+        img.onload = () => {
+            render();
+        };
+
+        return () => cancelAnimationFrame(animationFrame);
+    }, [currentScene, images, subtitles, isPlaying]);
+
+    return (
+        <canvas 
+            ref={canvasRef} 
+            style={{ 
+                width: '100%', 
+                height: '100%', 
+                objectFit: 'cover',
+                borderRadius: '16px' 
+            }} 
+        />
+    );
 }
 
 export default App;
