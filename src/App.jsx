@@ -11,6 +11,7 @@ function App() {
   const [currentScene, setCurrentScene] = useState(0);
   const [sceneImages, setSceneImages] = useState([]);
   const [generatingImages, setGeneratingImages] = useState(false);
+  const [keyMissing, setKeyMissing] = useState(!import.meta.env.VITE_OPENAI_API_KEY);
 
   const handleGenerate = async () => {
     if (!prompt) return;
@@ -76,6 +77,16 @@ function App() {
             The world's first AI Video Assistant that turns prompts into complete 
             storyboards, scripts, and production-ready animations.
           </motion.p>
+
+          {keyMissing && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="key-warning glass-card"
+            >
+              <p>⚠️ OpenAI API Key is missing. Please add <strong>VITE_OPENAI_API_KEY</strong> to your Vercel Environment Variables.</p>
+            </motion.div>
+          )}
 
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}

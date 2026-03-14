@@ -1,8 +1,14 @@
 import OpenAI from 'openai';
 
+const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+if (!apiKey) {
+  console.warn("OpenAI API Key is missing. Please set VITE_OPENAI_API_KEY in your environment variables.");
+}
+
 const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true // For this specific client-only demo
+  apiKey: apiKey || 'missing-key',
+  dangerouslyAllowBrowser: true 
 });
 
 export const generateVideoConcept = async (prompt) => {
